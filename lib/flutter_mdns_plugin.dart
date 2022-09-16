@@ -1,8 +1,7 @@
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 class ServiceInfo {
-  Map<String, Uint8List?>? attr;
+  Map<String, Uint8List> attr;
   String name;
   String type;
   String hostName;
@@ -12,7 +11,7 @@ class ServiceInfo {
       this.attr, this.name, this.type, this.hostName, this.address, this.port);
 
   static ServiceInfo fromMap(Map fromChannel) {
-    Map<String, Uint8List?>? attr;
+    Map<String, Uint8List> attr;
     String name = "";
     String type = "";
     String hostName = "";
@@ -20,7 +19,7 @@ class ServiceInfo {
     int port = 0;
 
     if (fromChannel.containsKey("attr")) {
-      attr = Map<String, Uint8List?>.from(fromChannel["attr"]);
+      attr = Map<String, Uint8List>.from(fromChannel["attr"]);
     }
 
     if (fromChannel.containsKey("name")) {
@@ -58,11 +57,11 @@ typedef void IntCallback(int data);
 typedef void VoidCallback();
 
 class DiscoveryCallbacks {
-  VoidCallback? onDiscoveryStarted;
-  VoidCallback? onDiscoveryStopped;
-  ServiceInfoCallback? onDiscovered;
-  ServiceInfoCallback? onResolved;
-  ServiceInfoCallback? onLost;
+  VoidCallback onDiscoveryStarted;
+  VoidCallback onDiscoveryStopped;
+  ServiceInfoCallback onDiscovered;
+  ServiceInfoCallback onResolved;
+  ServiceInfoCallback onLost;
 
   DiscoveryCallbacks({
     this.onDiscoveryStarted,
@@ -76,7 +75,7 @@ class DiscoveryCallbacks {
 class FlutterMdnsPlugin {
   static const String NAMESPACE = "eu.sndr.mdns";
 
-  late String _serviceType;
+  String _serviceType;
 
   static const MethodChannel _channel =
       const MethodChannel('flutter_mdns_plugin');
@@ -95,7 +94,7 @@ class FlutterMdnsPlugin {
 
   DiscoveryCallbacks discoveryCallbacks;
 
-  FlutterMdnsPlugin({required this.discoveryCallbacks}) {
+  FlutterMdnsPlugin({this.discoveryCallbacks}) {
     _serviceResolvedChannel.receiveBroadcastStream().listen((data) {
       print("Service resolved ${data.toString()}");
       discoveryCallbacks.onResolved?.call(ServiceInfo.fromMap(data));

@@ -2,9 +2,8 @@ package eu.sndr.fluttermdnsplugin;
 
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.plugins.GeneratedPluginRegistrant;
-import androidx.annotation.NonNull;
-import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
+import androidx.annotation.NonNull;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
@@ -36,203 +35,195 @@ import static android.content.ContentValues.TAG;
 /**
  * FlutterMdnsPlugin
  */
-public class FlutterMdnsPlugin implements MethodCallHandler {
 
-    private final static String NAMESPACE = "eu.sndr.mdns";
-    private NsdManager mNsdManager;
-    private NsdManager.DiscoveryListener mDiscoveryListener;
-    private ArrayList<NsdServiceInfo> mDiscoveredServices;
 
-    /**
-     * Plugin registration.
-     */
-    public static void registerWith(Registrar registrar) {
+class MainActivity: FlutterActivity() {
 
-        final MethodChannel channel = new MethodChannel(registrar.messenger(), "flutter_mdns_plugin");
-        channel.setMethodCallHandler(new FlutterMdnsPlugin(registrar));
+    public class FlutterMdnsPlugin implements MethodCallHandler {
 
-    }
+        private final static String NAMESPACE = "eu.sndr.mdns";
+        private NsdManager mNsdManager;
+        private NsdManager.DiscoveryListener mDiscoveryListener;
+        private ArrayList<NsdServiceInfo> mDiscoveredServices;
 
-    FlutterMdnsPlugin(Registrar r) {
+        /**
+         * Plugin registration.
+         */
+        public static void registerWith(Registrar registrar) {
 
-        mDiscoveredServices = new ArrayList<>();
+            final MethodChannel channel = new MethodChannel(registrar.messenger(), "flutter_mdns_plugin");
+            channel.setMethodCallHandler(new FlutterMdnsPlugin(registrar));
 
-        EventChannel serviceDiscoveredChannel = new EventChannel(r.messenger(), NAMESPACE + "/discovered");
-        mDiscoveredHandler = new ServiceDiscoveredHandler();
-        serviceDiscoveredChannel.setStreamHandler(mDiscoveredHandler);
+        }
 
-        EventChannel serviceResolved = new EventChannel(r.messenger(), NAMESPACE + "/resolved");
-        mResolvedHandler = new ServiceResolvedHandler();
-        serviceResolved.setStreamHandler(mResolvedHandler);
+        FlutterMdnsPlugin(Registrar r) {
 
-        EventChannel serviceLost = new EventChannel(r.messenger(), NAMESPACE + "/lost");
-        mLostHandler = new ServiceLostHandler();
-        serviceLost.setStreamHandler(mLostHandler);
+            mDiscoveredServices = new ArrayList<>();
 
-        EventChannel discoveryRunning = new EventChannel(r.messenger(), NAMESPACE + "/running");
-        mDiscoveryRunningHandler = new DiscoveryRunningHandler(r.activity());
-        discoveryRunning.setStreamHandler(mDiscoveryRunningHandler);
+            EventChannel serviceDiscoveredChannel = new EventChannel(r.messenger(), NAMESPACE + "/discovered");
+            mDiscoveredHandler = new ServiceDiscoveredHandler();
+            serviceDiscoveredChannel.setStreamHandler(mDiscoveredHandler);
 
-        mRegistrar = r;
+            EventChannel serviceResolved = new EventChannel(r.messenger(), NAMESPACE + "/resolved");
+            mResolvedHandler = new ServiceResolvedHandler();
+            serviceResolved.setStreamHandler(mResolvedHandler);
 
-    }
+            EventChannel serviceLost = new EventChannel(r.messenger(), NAMESPACE + "/lost");
+            mLostHandler = new ServiceLostHandler();
+            serviceLost.setStreamHandler(mLostHandler);
 
-    private Registrar mRegistrar;
-    private DiscoveryRunningHandler mDiscoveryRunningHandler;
-    private ServiceDiscoveredHandler mDiscoveredHandler;
-    private ServiceResolvedHandler mResolvedHandler;
-    private ServiceLostHandler mLostHandler;
+            EventChannel discoveryRunning = new EventChannel(r.messenger(), NAMESPACE + "/running");
+            mDiscoveryRunningHandler = new DiscoveryRunningHandler(r.activity());
+            discoveryRunning.setStreamHandler(mDiscoveryRunningHandler);
 
-    @Override
-    public void onMethodCall(MethodCall call, Result result) {
+            mRegistrar = r;
 
-        switch (call.method) {
-            case "startDiscovery":
-                startDiscovery(call.argument("serviceType"));
-                result.success(null);
-                break;
-            case "stopDiscovery":
-                stopDiscovery();
-                result.success(null);
-                break;
-            case "requestDiscoveredServices":
-                for (NsdServiceInfo serviceInfo : mDiscoveredServices) {
+        }
 
+        private Registrar mRegistrar;
+        private DiscoveryRunningHandler mDiscoveryRunningHandler;
+        private ServiceDiscoveredHandler mDiscoveredHandler;
+        private ServiceResolvedHandler mResolvedHandler;
+        private ServiceLostHandler mLostHandler;
+
+        @Override
+        public void onMethodCall(MethodCall call, Result result) {
+
+            switch (call.method) {
+                case "startDiscovery":
+                    startDiscovery(call.argument("serviceType"));
+                    result.success(null);
+                    break;
+                case "stopDiscovery":
+                    stopDiscovery();
+                    result.success(null);
+                    break;
+                case "requestDiscoveredServices":
+                    for (NsdServiceInfo serviceInfo : mDiscoveredServices) {
+
+                    }
+                    break;
+                default:
+                    result.notImplemented();
+                    break;
+            }
+
+        }
+
+        @SuppressLint("NewApi")
+        private void startDiscovery(String serviceName) {
+
+            mNsdManager = (NsdManager) mRegistrar.activity().getSystemService(Context.NSD_SERVICE);
+
+            mDiscoveryListener = new NsdManager.DiscoveryListener() {
+
+                @Override
+                public void onStartDiscoveryFailed(String serviceType, int errorCode) {
+                    Log.e(TAG, String.format(Locale.US, "Discovery failed to start on %s with error : %d", serviceType, errorCode));
+                    mDiscoveryRunningHandler.onDiscoveryStopped();
                 }
-                break;
-            default:
-                result.notImplemented();
-                break;
-        }
 
-    }
+                @Override
+                public void onStopDiscoveryFailed(String serviceType, int errorCode) {
+                    Log.e(TAG, String.format(Locale.US, "Discovery failed to stop on %s with error : %d", serviceType, errorCode));
+                    mDiscoveryRunningHandler.onDiscoveryStarted();
+                }
 
-    @SuppressLint("NewApi")
-    private void startDiscovery(String serviceName) {
+                @Override
+                public void onDiscoveryStarted(String serviceType) {
+                    Log.d(TAG, "Started discovery for : " + serviceType);
+                    mDiscoveryRunningHandler.onDiscoveryStarted();
+                }
 
-        mNsdManager = (NsdManager) mRegistrar.activity().getSystemService(Context.NSD_SERVICE);
+                @Override
+                public void onDiscoveryStopped(String serviceType) {
+                    Log.d(TAG, "Stopped discovery for : " + serviceType);
+                    mDiscoveryRunningHandler.onDiscoveryStopped();
+                }
 
-        mDiscoveryListener = new NsdManager.DiscoveryListener() {
+                @Override
+                public void onServiceFound(NsdServiceInfo nsdServiceInfo) {
+                    Log.d(TAG, "Found Service : " + nsdServiceInfo.toString());
+                    mDiscoveredServices.add(nsdServiceInfo);
+                    mDiscoveredHandler.onServiceDiscovered(ServiceToMap(nsdServiceInfo));
 
-            @Override
-            public void onStartDiscoveryFailed(String serviceType, int errorCode) {
-                Log.e(TAG, String.format(Locale.US,
-                        "Discovery failed to start on %s with error : %d", serviceType, errorCode));
-                mDiscoveryRunningHandler.onDiscoveryStopped();
-            }
+                    mNsdManager.resolveService(nsdServiceInfo, new NsdManager.ResolveListener() {
+                        @Override
+                        public void onResolveFailed(NsdServiceInfo nsdServiceInfo, int errorCode) {
+                            Log.d(TAG, "Failed to resolve service : " + nsdServiceInfo.toString());
 
-            @Override
-            public void onStopDiscoveryFailed(String serviceType, int errorCode) {
-                Log.e(TAG, String.format(Locale.US,
-                        "Discovery failed to stop on %s with error : %d", serviceType, errorCode));
-                mDiscoveryRunningHandler.onDiscoveryStarted();
-            }
-
-            @Override
-            public void onDiscoveryStarted(String serviceType) {
-                Log.d(TAG, "Started discovery for : " + serviceType);
-                mDiscoveryRunningHandler.onDiscoveryStarted();
-            }
-
-            @Override
-            public void onDiscoveryStopped(String serviceType) {
-                Log.d(TAG, "Stopped discovery for : " + serviceType);
-                mDiscoveryRunningHandler.onDiscoveryStopped();
-            }
-
-            @Override
-            public void onServiceFound(NsdServiceInfo nsdServiceInfo) {
-                Log.d(TAG, "Found Service : " + nsdServiceInfo.toString());
-                mDiscoveredServices.add(nsdServiceInfo);
-                mDiscoveredHandler.onServiceDiscovered(ServiceToMap(nsdServiceInfo));
-
-                mNsdManager.resolveService(nsdServiceInfo, new NsdManager.ResolveListener() {
-                    @Override
-                    public void onResolveFailed(NsdServiceInfo nsdServiceInfo, int errorCode) {
-                        Log.d(TAG, "Failed to resolve service : " + nsdServiceInfo.toString());
-
-                        switch (errorCode) {
-                            case NsdManager.FAILURE_ALREADY_ACTIVE:
-                                Log.e(TAG, "FAILURE_ALREADY_ACTIVE");
-                                // Just try again...
-                                onServiceFound(nsdServiceInfo);
-                                break;
-                            case NsdManager.FAILURE_INTERNAL_ERROR:
-                                Log.e(TAG, "FAILURE_INTERNAL_ERROR");
-                                break;
-                            case NsdManager.FAILURE_MAX_LIMIT:
-                                Log.e(TAG, "FAILURE_MAX_LIMIT");
-                                // https://stackoverflow.com/questions/16736142/nsnetworkmanager-resolvelistener-messages-android
-                                onServiceFound(nsdServiceInfo);
-                                break;
+                            switch (errorCode) {
+                                case NsdManager.FAILURE_ALREADY_ACTIVE:
+                                    Log.e(TAG, "FAILURE_ALREADY_ACTIVE");
+                                    // Just try again...
+                                    onServiceFound(nsdServiceInfo);
+                                    break;
+                                case NsdManager.FAILURE_INTERNAL_ERROR:
+                                    Log.e(TAG, "FAILURE_INTERNAL_ERROR");
+                                    break;
+                                case NsdManager.FAILURE_MAX_LIMIT:
+                                    Log.e(TAG, "FAILURE_MAX_LIMIT");
+                                    // https://stackoverflow.com/questions/16736142/nsnetworkmanager-resolvelistener-messages-android
+                                    onServiceFound(nsdServiceInfo);
+                                    break;
+                            }
                         }
-                    }
 
-                    @Override
-                    public void onServiceResolved(NsdServiceInfo nsdServiceInfo) {
-                        mResolvedHandler.onServiceResolved(ServiceToMap(nsdServiceInfo));
-                    }
-                });
+                        @Override
+                        public void onServiceResolved(NsdServiceInfo nsdServiceInfo) {
+                            mResolvedHandler.onServiceResolved(ServiceToMap(nsdServiceInfo));
+                        }
+                    });
+                }
+
+                ;
+
+
+                @Override
+                public void onServiceLost(NsdServiceInfo nsdServiceInfo) {
+                    Log.d(TAG, "Lost Service : " + nsdServiceInfo.toString());
+                    mLostHandler.onServiceLost(ServiceToMap(nsdServiceInfo));
+                }
             };
 
-            @Override
-            public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
-                GeneratedPluginRegistrant.registerWith(flutterEngine);
-                new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
-                        .setMethodCallHandler(
-                                (call, result) -> {
-                                    // Your existing code
-                                }
-                        );
-            };
+            mNsdManager.discoverServices(serviceName, NsdManager.PROTOCOL_DNS_SD, mDiscoveryListener);
 
-            @Override
-            public void onServiceLost(NsdServiceInfo nsdServiceInfo) {
-                Log.d(TAG, "Lost Service : " + nsdServiceInfo.toString());
-                mLostHandler.onServiceLost(ServiceToMap(nsdServiceInfo));
+        }
+
+        private void stopDiscovery() {
+
+            if (mNsdManager != null && mDiscoveryListener != null) {
+                mNsdManager.stopServiceDiscovery(mDiscoveryListener);
             }
-        };
 
-        mNsdManager.discoverServices(serviceName, NsdManager.PROTOCOL_DNS_SD, mDiscoveryListener);
+        }
 
-    }
+        /**
+         * serviceToMap converts an NsdServiceInfo object into a map of relevant info
+         * The map can be interpreted by the StandardMessageCodec of Flutter and makes sending data back and forth simpler.
+         *
+         * @param info The ServiceInfo to convert
+         * @return The map that can be interpreted by Flutter and sent back on an EventChannel
+         */
+        @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+        private static Map<String, Object> ServiceToMap(NsdServiceInfo info) {
+            Map<String, Object> map = new HashMap<>();
 
-    private void stopDiscovery() {
+            map.put("attr", info.getAttributes() != null ? info.getAttributes() : Collections.emptyMap());
 
-        if (mNsdManager != null && mDiscoveryListener != null) {
-            mNsdManager.stopServiceDiscovery(mDiscoveryListener);
+            map.put("name", info.getServiceName() != null ? info.getServiceName() : "");
+
+            map.put("type", info.getServiceType() != null ? info.getServiceType() : "");
+
+            map.put("hostName", info.getHost() != null ? info.getHost().getHostName() : "");
+
+            map.put("address", info.getHost() != null ? info.getHost().getHostAddress() : "");
+
+            map.put("port", info.getPort());
+
+            return map;
         }
 
     }
-
-    /**
-     * serviceToMap converts an NsdServiceInfo object into a map of relevant info
-     * The map can be interpreted by the StandardMessageCodec of Flutter and makes sending data back and forth simpler.
-     *
-     * @param info The ServiceInfo to convert
-     * @return The map that can be interpreted by Flutter and sent back on an EventChannel
-     */
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    private static Map<String, Object> ServiceToMap(NsdServiceInfo info) {
-        Map<String, Object> map = new HashMap<>();
-
-        map.put("attr", info.getAttributes() != null ? info.getAttributes() : Collections.emptyMap());
-
-        map.put("name", info.getServiceName() != null ? info.getServiceName() : "");
-
-        map.put("type", info.getServiceType() != null ? info.getServiceType() : "");
-
-        map.put("hostName", info.getHost() != null ? info.getHost().getHostName() : "");
-
-        map.put("address", info.getHost() != null ? info.getHost().getHostAddress() : "");
-
-        map.put("port", info.getPort());
-
-        return map;
-    }
-
-}
-
-public class MainActivity extends FlutterActivity {
 
 }
