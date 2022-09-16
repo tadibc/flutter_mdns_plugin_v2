@@ -173,7 +173,18 @@ public class FlutterMdnsPlugin implements MethodCallHandler {
                         mResolvedHandler.onServiceResolved(ServiceToMap(nsdServiceInfo));
                     }
                 });
-            }
+            };
+
+            @Override
+            public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
+                GeneratedPluginRegistrant.registerWith(flutterEngine);
+                new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
+                        .setMethodCallHandler(
+                                (call, result) -> {
+                                    // Your existing code
+                                }
+                        );
+            };
 
             @Override
             public void onServiceLost(NsdServiceInfo nsdServiceInfo) {
@@ -223,14 +234,5 @@ public class FlutterMdnsPlugin implements MethodCallHandler {
 }
 
 public class MainActivity extends FlutterActivity {
-    @Override
-    public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
-        GeneratedPluginRegistrant.registerWith(flutterEngine);
-        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
-                .setMethodCallHandler(
-                        (call, result) -> {
-                            // Your existing code
-                        }
-                );
-    }
+
 }
